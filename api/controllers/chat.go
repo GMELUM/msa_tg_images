@@ -19,15 +19,15 @@ func Chat(path string, app fiber.Router) {
 			return fiber.NewError(fiber.StatusNotFound, "")
 		}
 
-		identifier = fmt.Sprintf("chat_%v", identifier)
+		key := fmt.Sprintf("chat_%v", identifier)
 
-		image, success := cache.Store.GetImage(identifier)
+		image, success := cache.Store.GetImage(key)
 		if !success {
 			file, err := images.GetChatImage(identifier, *config.TOKEN)
 			if err != nil {
-				file = avatar.CreateChat(identifier)
+				file = avatar.CreateChat(key)
 			}
-			cache.Store.SetImage(identifier, file)
+			cache.Store.SetImage(key, file)
 			image = &file
 		}
 

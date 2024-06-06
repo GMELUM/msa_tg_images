@@ -19,15 +19,15 @@ func User(path string, app fiber.Router) {
 			return fiber.NewError(fiber.StatusNotFound, "")
 		}
 
-		identifier = fmt.Sprintf("user_%v", identifier)
+		key := fmt.Sprintf("user_%v", identifier)
 
-		image, success := cache.Store.GetImage(identifier)
+		image, success := cache.Store.GetImage(key)
 		if !success {
 			file, err := images.GetUserImage(identifier, *config.TOKEN)
 			if err != nil {
-				file = avatar.CreateUser(identifier)
+				file = avatar.CreateUser(key)
 			}
-			cache.Store.SetImage(identifier, file)
+			cache.Store.SetImage(key, file)
 			image = &file
 		}
 
