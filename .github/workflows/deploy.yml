@@ -1,0 +1,94 @@
+name: CI/CD Golang
+
+on:
+  push:
+    branches: 
+      - main
+
+jobs:
+  build:
+    name: Build Go Application
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.21.3
+
+      - name: Disable CGO
+        run: go env -w CGO_ENABLED=0
+
+      - name: Build Go application
+        run: go build -o app main.go
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-files
+          path: |
+            app
+            config.ini
+          compression-level: 0
+
+  deploy:
+    name: Deploy Go Application
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        port: [18413]
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: app-files
+
+      - name: Copy files to server
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          username: root
+          host: ${{ secrets.HOST }}
+          key: ${{ secrets.SECRET }}
+          port: ${{ matrix.port }}
+          source: "app"
+          target: /home/server/app
+
+      - name: Create app.service and enable autostart
+        uses: appleboy/ssh-action@master
+        with:
+          username: root
+          host: ${{ secrets.HOST }}
+          key: ${{ secrets.SECRET }}
+          port: ${{ matrix.port }}
+          script: |
+            echo "[Unit]
+            Description=My Go Application
+            After=network.target
+  
+            [Service]
+            ExecStart=/home/server/app/app -s=10000 -d=60s -t=${{ secrets.TOKEN }}
+            WorkingDirectory=/home/server/app
+            User=server
+            Group=server
+            TimeoutStartSec=0
+            Restart=always
+            RestartSec=5s
+              
+            [Install]
+            WantedBy=multi-user.target" | sudo tee /etc/systemd/system/app.service
+
+            chmod +x /home/server/app/*
+
+            systemctl daemon-reload
+            systemctl stop app.service
+            systemctl disable app.service
+            systemctl enable app.service
+            systemctl start app.service
